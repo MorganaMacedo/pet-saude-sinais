@@ -1,0 +1,56 @@
+[
+  {
+    "modality": "ecg",
+    "dataset_handle": "shayanfazeli/heartbeat",
+    "title": "ECG Heartbeat Categorization Dataset",
+    "origin": "MIT-BIH Arrhythmia e PTB Diagnostic ECG",
+    "task": "Classificação de batimentos segmentados",
+    "adapter": "ecg_kaggle_heartbeat.json",
+    "readiness": "configured"
+  },
+  {
+    "modality": "emg",
+    "dataset_handle": "mdnafeesimtiaz/als-and-normal-patient-dataset",
+    "title": "ALS & Normal Patient Dataset",
+    "origin": "Verificar documentação e licença no Kaggle",
+    "task": "Comparação exploratória entre grupos",
+    "adapter": "dataset_template.json",
+    "readiness": "requires_mapping"
+  },
+  {
+    "modality": "eeg",
+    "dataset_handle": "subirbiswas19/eeg-dataset",
+    "title": "CHB-MIT EEG Dataset em CSV",
+    "origin": "CHB-MIT Scalp EEG Database",
+    "task": "Triagem acadêmica de segmentos com eventos anotados",
+    "adapter": "dataset_template.json",
+    "readiness": "requires_mapping"
+  },
+  {
+    "modality": "ppg",
+    "dataset_handle": "orvile/wesad-wearable-stress-affect-detection-dataset",
+    "title": "WESAD",
+    "origin": "Wearable Stress and Affect Detection",
+    "task": "Análise multimodal de respostas autonômicas",
+    "adapter": "long_signal_template.json",
+    "readiness": "requires_mapping"
+  },
+  {
+    "modality": "resp",
+    "dataset_handle": "paulopinheiro/the-apnea-ecg-database-v100",
+    "title": "Apnea-ECG Database",
+    "origin": "PhysioNet Apnea-ECG",
+    "task": "Triagem acadêmica de eventos respiratórios",
+    "adapter": "long_signal_template.json",
+    "readiness": "requires_mapping"
+  },
+  {
+    "modality": "pcg",
+    "dataset_handle": "bjoernjostein/the-circor-digiscope-phonocardiogram-dataset-v2",
+    "title": "CirCor DigiScope Phonocardiogram Dataset",
+    "origin": "PhysioNet Challenge 2022",
+    "task": "Classificação acadêmica de sopros e qualidade",
+    "adapter": "dataset_template.json",
+    "readiness": "requires_mapping"
+  }
+]

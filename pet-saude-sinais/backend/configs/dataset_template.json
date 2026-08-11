@@ -1,0 +1,23 @@
+{
+  "dataset_name": "Nome e versão da base",
+  "dataset_handle": "autor/base-no-kaggle",
+  "dataset_path": "datasets/base/registros.csv",
+  "format": "wide_csv",
+  "header": "infer",
+  "label_column": "label",
+  "group_column": "subject_id",
+  "signal_columns": ["sample_0", "sample_1", "sample_2"],
+  "label_map": {},
+  "modality": "emg",
+  "sample_rate": 1000,
+  "version": "emg-0.1",
+  "test_size": 0.2,
+  "random_seed": 42,
+  "n_estimators": 400,
+  "min_samples_leaf": 2,
+  "intended_use": "Ensino e pesquisa",
+  "limitations": [
+    "População-alvo ainda não definida",
+    "Rótulos clínicos dependem de revisão de especialista"
+  ]
+}

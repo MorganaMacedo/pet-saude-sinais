@@ -1,0 +1,30 @@
+{
+  "dataset_name": "Kaggle ECG Heartbeat Categorization Dataset",
+  "dataset_handle": "shayanfazeli/heartbeat",
+  "dataset_path": "datasets/heartbeat/mitbih_train.csv",
+  "format": "wide_csv",
+  "header": null,
+  "label_column": -1,
+  "group_column": null,
+  "signal_start": 0,
+  "signal_end": -1,
+  "label_map": {
+    "0.0": "N: batimentos não ectópicos",
+    "1.0": "S: batimentos ectópicos supraventriculares",
+    "2.0": "V: batimentos ectópicos ventriculares",
+    "3.0": "F: fusão ventricular e normal",
+    "4.0": "Q: batimentos não classificáveis"
+  },
+  "modality": "ecg",
+  "sample_rate": 125,
+  "version": "ecg-kaggle-0.1",
+  "test_size": 0.2,
+  "random_seed": 42,
+  "n_estimators": 500,
+  "min_samples_leaf": 2,
+  "intended_use": "Classificação acadêmica de batimentos ECG previamente segmentados",
+  "limitations": [
+    "A configuração utiliza batimentos já segmentados e não realiza detecção contínua de eventos",
+    "Os rótulos e o pré-processamento do derivado do Kaggle devem ser confrontados com a fonte original"
+  ]
+}

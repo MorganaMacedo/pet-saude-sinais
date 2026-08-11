@@ -16,4 +16,6 @@ backend/.venv/
 backend/datasets/
 backend/models/*/*.joblib
 backend/models/*/manifest.json
+.streamlit/secrets.toml
+.venv/
 .vercel/

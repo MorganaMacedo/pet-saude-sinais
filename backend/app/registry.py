@@ -10,12 +10,12 @@ from .signals import FEATURE_LABELS, FEATURE_NAMES
 
 
 LABELS = {
-    "ecg": ["Ritmo sinusal", "Extrassístole ventricular", "Irregularidade compatível com FA", "Alteração morfológica inespecífica"],
-    "emg": ["Padrão fisiológico", "Padrão neuropático", "Padrão miopático", "Atividade espontânea"],
-    "eeg": ["Ritmo de base esperado", "Descarga epileptiforme suspeita", "Lentificação focal", "Predomínio de artefato"],
-    "ppg": ["Pulso regular", "Irregularidade de pulso", "Baixa perfusão", "Artefato de movimento"],
-    "resp": ["Padrão ventilatório preservado", "Padrão obstrutivo suspeito", "Padrão restritivo suspeito", "Evento respiratório suspeito"],
-    "pcg": ["Bulhas sem alteração detectável", "Sopro sistólico suspeito", "Sopro diastólico suspeito", "Ruído de aquisição"]
+    "ecg": ["Ritmo sinusal", "Padrão compatível com fibrilação atrial", "Extrassístoles ventriculares suspeitas", "Taquicardia suspeita", "Bradicardia suspeita", "Alteração de ST-T inespecífica", "ECG não classificável por artefato"],
+    "emg": ["Padrão eletromiográfico fisiológico", "Padrão neuropático suspeito", "Padrão miopático suspeito", "Atividade espontânea suspeita", "Padrão de fadiga neuromuscular", "EMG não classificável por artefato"],
+    "eeg": ["Ritmo de base preservado", "Atividade epileptiforme suspeita", "Predomínio de atividade lenta", "Atividade rápida predominante", "EEG não classificável por artefato"],
+    "ppg": ["Pulso periférico regular", "Pulso irregular compatível com arritmia", "Baixa perfusão periférica suspeita", "Taquicardia periférica suspeita", "Bradicardia periférica suspeita", "PPG não classificável por movimento"],
+    "resp": ["Padrão ventilatório preservado", "Evento de apneia ou hipopneia suspeito", "Taquipneia suspeita", "Bradipneia suspeita", "Respiração periódica suspeita", "Padrão obstrutivo suspeito", "Sinal respiratório não classificável"],
+    "pcg": ["Bulhas sem alteração predominante", "Sopro sistólico suspeito", "Sopro diastólico suspeito", "Sopro contínuo suspeito", "Bulha adicional suspeita", "PCG não classificável por ruído"]
 }
 
 
@@ -137,8 +137,8 @@ class ModelRegistry:
             "direction": "Maior desvio no sinal" if value >= 0 else "Menor desvio no sinal"
         } for name, value in ranked]
         return {
-            "model": f"{modality.upper()}-demo 0.4",
-            "status": "Simulação acadêmica",
+            "model": f"{modality.upper()}-PathClass 2.0",
+            "status": "Protótipo acadêmico 2.0",
             "probabilities": output,
             "uncertainty": "Elevada",
             "features": contributions,

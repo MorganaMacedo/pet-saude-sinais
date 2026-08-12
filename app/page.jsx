@@ -7,6 +7,7 @@ import {
   generateSignal,
   inspectSignal,
   modalities,
+  pathologyClassCount,
   readSignalFile,
   runDemoAnalysis
 } from "./lib/clinical";
@@ -24,9 +25,11 @@ const symptoms = [
   "Dor torácica",
   "Síncope ou pré-síncope",
   "Dispneia importante",
+  "Convulsão",
   "Fraqueza muscular",
   "Tremor",
-  "Alteração do sono"
+  "Alteração do sono",
+  "Cianose"
 ];
 
 function LogoMark() {
@@ -117,6 +120,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [mobileMenu, setMobileMenu] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
+  const [demoPatternId, setDemoPatternId] = useState(modalities[0].patterns[0].id);
+  const [sourceType, setSourceType] = useState("upload");
   const inputRef = useRef(null);
 
   const quality = useMemo(() => signal.length ? inspectSignal(signal, selectedModality.id, sampleRate) : null, [signal, selectedModality, sampleRate]);
@@ -128,12 +133,19 @@ export default function Home() {
     setFileName("");
     setResult(null);
     setError("");
+    setAcknowledged(false);
+    setDemoPatternId(modality.patterns[0].id);
+    setSourceType("upload");
   };
 
-  const loadDemo = modality => {
+  const loadDemo = (modality, requestedPattern) => {
+    const patternId = requestedPattern || modality.patterns[0].id;
+    const selectedPattern = modality.patterns.find(item => item.id === patternId) || modality.patterns[0];
     chooseModality(modality);
-    setSignal(generateSignal(modality.id));
-    setFileName(`amostra_${modality.id}_demonstrativa.csv`);
+    setDemoPatternId(selectedPattern.id);
+    setSignal(generateSignal(modality.id, undefined, selectedPattern.id));
+    setFileName(`cenario_${modality.id}_${selectedPattern.id}.csv`);
+    setSourceType("demo");
     setActivePage("analysis");
   };
 
@@ -145,6 +157,8 @@ export default function Home() {
       setSignal(values);
       setFileName(file.name);
       setResult(null);
+      setSourceType("upload");
+      setAcknowledged(false);
     } catch (exception) {
       setError(exception.message || "Não foi possível processar o arquivo.");
     }
@@ -159,7 +173,8 @@ export default function Home() {
     setBusy(true);
     setError("");
     try {
-      const context = { recordCode, symptoms: selectedSymptoms, notes };
+      const context = { recordCode, symptoms: selectedSymptoms, notes, sourceType, scenarioId: sourceType === "demo" ? demoPatternId : null };
+      const localResult = runDemoAnalysis(signal, selectedModality, sampleRate, context);
       const response = await analyzeWithBackend({
         modality: selectedModality.id,
         samples: signal,
@@ -168,9 +183,9 @@ export default function Home() {
         symptoms: selectedSymptoms,
         notes
       });
-      setResult(response || runDemoAnalysis(signal, selectedModality, sampleRate, context));
+      setResult(response ? { ...localResult, ...response } : localResult);
     } catch {
-      setResult(runDemoAnalysis(signal, selectedModality, sampleRate, { recordCode, symptoms: selectedSymptoms, notes }));
+      setResult(runDemoAnalysis(signal, selectedModality, sampleRate, { recordCode, symptoms: selectedSymptoms, notes, sourceType, scenarioId: sourceType === "demo" ? demoPatternId : null }));
       setError("A API Python não respondeu. A saída exibida corresponde à simulação acadêmica local.");
     } finally {
       setBusy(false);
@@ -201,7 +216,7 @@ export default function Home() {
           <LogoMark />
           <div>
             <strong>PET-Saúde</strong>
-            <span>Sinais clínicos</span>
+            <span>Sinais clínicos 2.0</span>
           </div>
         </div>
         <nav aria-label="Navegação principal">
@@ -213,7 +228,7 @@ export default function Home() {
         </nav>
         <div className="sidebar-note">
           <strong>Projeto PET-Saúde</strong>
-          <p>Análise acadêmica de sinais fisiológicos.</p>
+          <p>Classificação acadêmica de padrões fisiológicos e patológicos.</p>
         </div>
         <div className="sidebar-footer">Projeto PET-Saúde · UCPel</div>
       </aside>
@@ -222,7 +237,7 @@ export default function Home() {
         <header className="topbar">
           <button className="menu-button" aria-label="Abrir menu" onClick={() => setMobileMenu(!mobileMenu)}>Menu</button>
           <div>
-            <span className="eyebrow">Apoio à leitura de sinais fisiológicos</span>
+            <span className="eyebrow">Classificador multimodal acadêmico 2.0</span>
             <strong>Clínica Escola</strong>
           </div>
           <div className="topbar-project">PET-Saúde · UCPel</div>
@@ -243,7 +258,10 @@ export default function Home() {
               quality={quality}
               inputRef={inputRef}
               onFile={handleFile}
-              onDemo={() => loadDemo(selectedModality)}
+              onDemo={patternId => loadDemo(selectedModality, patternId)}
+              demoPatternId={demoPatternId}
+              onDemoPattern={setDemoPatternId}
+              sourceType={sourceType}
               recordCode={recordCode}
               onRecordCode={setRecordCode}
               selectedSymptoms={selectedSymptoms}
@@ -274,9 +292,9 @@ function Overview({ history, onStart, onDemo }) {
     <div className="page overview-page">
       <section className="overview-header">
         <div className="hero-copy">
-          <span className="section-kicker dark">PET-Saúde</span>
-          <h1>Análise de sinais fisiológicos</h1>
-          <p>Selecione uma modalidade, envie o arquivo do exame e consulte a avaliação de qualidade e a pré-análise acadêmica.</p>
+          <span className="section-kicker dark">PET-Saúde · versão 2.0</span>
+          <h1>Classificação de padrões em sinais fisiológicos</h1>
+          <p>Selecione uma modalidade, envie um trecho anonimizado e consulte as classes patológicas suspeitas, as evidências computacionais e a incerteza do protótipo.</p>
           <div className="hero-actions">
             <button className="button primary" onClick={onStart}>Nova análise</button>
           </div>
@@ -288,6 +306,11 @@ function Overview({ history, onStart, onDemo }) {
           <span className="summary-label">Modalidades preparadas</span>
           <strong>6</strong>
           <p>ECG, EMG, EEG, PPG, RESP e PCG</p>
+        </article>
+        <article className="summary-card">
+          <span className="summary-label">Classes comparadas</span>
+          <strong>{pathologyClassCount}</strong>
+          <p>Padrões fisiológicos, suspeitos e não classificáveis</p>
         </article>
         <article className="summary-card">
           <span className="summary-label">Casos nesta sessão</span>
@@ -313,8 +336,9 @@ function Overview({ history, onStart, onDemo }) {
               </div>
               <h3>{modality.fullName}</h3>
               <p>{modality.target}</p>
-              <div className="mini-wave"><Waveform signal={generateSignal(modality.id, 420)} color={modality.color} compact /></div>
-              <span className="demo-link">Abrir amostra demonstrativa</span>
+              <div className="class-count">{modality.patterns.length} classes acadêmicas</div>
+              <div className="mini-wave"><Waveform signal={generateSignal(modality.id, 420, modality.patterns[0].id)} color={modality.color} compact /></div>
+              <span className="demo-link">Abrir cenário fisiológico</span>
             </button>
           ))}
         </div>
@@ -344,14 +368,14 @@ function Overview({ history, onStart, onDemo }) {
   );
 }
 
-function AnalysisPage({ modality, onModality, signal, fileName, sampleRate, onSampleRate, quality, inputRef, onFile, onDemo, recordCode, onRecordCode, selectedSymptoms, onSymptom, notes, onNotes, result, busy, error, acknowledged, onAcknowledged, onAnalyze, onSave }) {
+function AnalysisPage({ modality, onModality, signal, fileName, sampleRate, onSampleRate, quality, inputRef, onFile, onDemo, demoPatternId, onDemoPattern, sourceType, recordCode, onRecordCode, selectedSymptoms, onSymptom, notes, onNotes, result, busy, error, acknowledged, onAcknowledged, onAnalyze, onSave }) {
   return (
     <div className="page analysis-page">
       <div className="page-title-row">
         <div>
-          <span className="section-kicker dark">Fluxo orientado</span>
-          <h1>Nova análise de sinal</h1>
-          <p>Preencha apenas informações desidentificadas e revise cada etapa antes de gerar a pré-análise.</p>
+          <span className="section-kicker dark">PathClass 2.0</span>
+          <h1>Classificação multimodal de sinal</h1>
+          <p>Preencha apenas informações desidentificadas e revise cada etapa antes de gerar as hipóteses classificatórias.</p>
         </div>
         <div className="step-indicator"><span className="active">1</span><i /><span className={signal.length ? "active" : ""}>2</span><i /><span className={result ? "active" : ""}>3</span></div>
       </div>
@@ -385,15 +409,16 @@ function AnalysisPage({ modality, onModality, signal, fileName, sampleRate, onSa
                 <div className="upload-symbol"><span>+</span></div>
                 <h3>Arraste o arquivo do sinal para esta área</h3>
                 <p>O arquivo deve conter amostras numéricas em uma coluna ou vetor.</p>
+                <label className="demo-picker"><span>Cenário sintético para demonstração</span><select value={demoPatternId} onChange={event => onDemoPattern(event.target.value)}>{modality.patterns.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
                 <div className="upload-actions">
                   <button className="button primary" onClick={() => inputRef.current?.click()}>Selecionar arquivo</button>
-                  <button className="button secondary" onClick={onDemo}>Usar amostra demonstrativa</button>
+                  <button className="button secondary" onClick={() => onDemo(demoPatternId)}>Carregar cenário</button>
                 </div>
               </div>
             ) : (
               <div className="signal-loaded">
                 <div className="signal-toolbar">
-                  <div><span className="file-dot" style={{ background: modality.color }} /><strong>{fileName}</strong><small>{signal.length.toLocaleString("pt-BR")} amostras</small></div>
+                  <div><span className="file-dot" style={{ background: modality.color }} /><strong>{fileName}</strong><small>{signal.length.toLocaleString("pt-BR")} amostras · {sourceType === "demo" ? "cenário sintético" : "arquivo enviado"}</small></div>
                   <button className="text-button" onClick={() => inputRef.current?.click()}>Substituir arquivo</button>
                   <input ref={inputRef} type="file" accept=".csv,.txt,.json" onChange={event => onFile(event.target.files?.[0])} />
                 </div>
@@ -404,6 +429,7 @@ function AnalysisPage({ modality, onModality, signal, fileName, sampleRate, onSa
                   <div><span>Duração</span><strong>{quality?.duration.toFixed(2)} s</strong></div>
                   <div><span>Unidade</span><strong>{modality.unit}</strong></div>
                 </div>
+                <div className="source-notice">{sourceType === "demo" ? "Cenário sintético rotulado, destinado à demonstração do fluxo. Não representa um paciente real." : "O protótipo comparará o arquivo com todas as classes acadêmicas disponíveis para esta modalidade."}</div>
               </div>
             )}
             {error && <div className="error-message">{error}</div>}
@@ -416,7 +442,7 @@ function AnalysisPage({ modality, onModality, signal, fileName, sampleRate, onSa
             </div>
             <div className="form-grid">
               <label className="field"><span>Código anonimizado do caso</span><input value={recordCode} onChange={event => onRecordCode(event.target.value)} maxLength={32} /></label>
-              <label className="field"><span>Modelo de análise</span><select><option>{modality.name}-demo 0.4 · acadêmico</option></select></label>
+              <label className="field"><span>Modelo de análise</span><select><option>{modality.name}-PathClass 2.0 · protótipo acadêmico</option></select></label>
             </div>
             <fieldset className="symptom-fieldset">
               <legend>Sinais e sintomas relatados</legend>
@@ -445,8 +471,8 @@ function AnalysisPage({ modality, onModality, signal, fileName, sampleRate, onSa
               <div className="side-empty"><span>∿</span><p>Envie um sinal para verificar duração, ruído, saturação e faixa dinâmica.</p></div>
             )}
             <label className="consent-check"><input type="checkbox" checked={acknowledged} onChange={event => onAcknowledged(event.target.checked)} /><p>Utilizarei o resultado somente para ensino ou pesquisa, com revisão de profissional habilitado.</p></label>
-            <button className="button primary full" disabled={!signal.length || busy || quality?.status === "Insuficiente" || !acknowledged} onClick={onAnalyze}>{busy ? "Processando sinal..." : "Gerar pré-análise"}</button>
-            <small className="button-note">Nenhuma decisão clínica deve ser tomada apenas com esta saída.</small>
+            <button className="button primary full" disabled={!signal.length || busy || quality?.status === "Insuficiente" || !acknowledged} onClick={onAnalyze}>{busy ? "Classificando padrões..." : "Classificar padrões"}</button>
+            <small className="button-note">A saída classifica padrões no trecho, não diagnostica uma pessoa.</small>
           </article>
         </aside>
       </section>
@@ -462,7 +488,7 @@ function Results({ result, modality, signal, onSave }) {
       <div className="results-header">
         <div>
           <span className="section-kicker">Resultado para revisão</span>
-          <h2>Pré-análise concluída</h2>
+          <h2>Classificação concluída</h2>
           <p>{result.id} · {formatDate(result.createdAt)}</p>
         </div>
         <div className="result-actions">
@@ -474,18 +500,19 @@ function Results({ result, modality, signal, onSave }) {
       {result.urgentContext && <div className="clinical-alert"><strong>Contexto prioritário para avaliação</strong><span>Há sinal ou sintoma de alarme informado. Aplique o protocolo assistencial institucional, independentemente da classificação do modelo.</span></div>}
       <div className="result-grid">
         <article className="result-card main-finding">
-          <span className="result-label">Classe priorizada pelo modelo</span>
+          <span className="result-label">Padrão priorizado pelo classificador</span>
           <h3>{result.primaryFinding}</h3>
-          <p>Resultado exploratório que deve ser confrontado com o traçado completo e os dados clínicos.</p>
+          <p>{result.primaryDescription || "Resultado exploratório que deve ser confrontado com o traçado completo e os dados clínicos."}</p>
+          <div className="finding-tags"><span>{result.primaryGroup || "Classe acadêmica"}</span><strong>{result.clinicalPriority || "Revisão profissional"}</strong></div>
           <div className="finding-metrics">
-            <Ring value={result.confidence} label="probabilidade" tone="light" />
-            <div><span>Incerteza</span><strong>{result.uncertainty}</strong><small>Modelo demonstrativo</small></div>
+            <Ring value={result.confidence} label="escore" tone="light" />
+            <div><span>Incerteza</span><strong>{result.uncertainty}</strong><small>Sem calibração clínica</small></div>
             <div><span>Qualidade</span><strong>{result.inspection.quality}%</strong><small>{result.inspection.status}</small></div>
           </div>
           <div className="result-wave"><Waveform signal={signal} color="#ffffff" /></div>
         </article>
         <article className="result-card probability-card">
-          <div className="card-title"><div><span className="result-label">Distribuição</span><h3>Hipóteses do modelo</h3></div><span className="demo-badge">{result.status}</span></div>
+          <div className="card-title"><div><span className="result-label">Comparação interna</span><h3>Classes avaliadas</h3></div><span className="demo-badge">{result.status}</span></div>
           <div className="probability-list">
             {result.probabilities.map((item, index) => (
               <div key={item.label}>
@@ -494,11 +521,11 @@ function Results({ result, modality, signal, onSave }) {
               </div>
             ))}
           </div>
-          <small>{result.status === "Simulação acadêmica" ? "Probabilidades demonstrativas, sem calibração clínica. Não representam prevalência ou risco individual." : "Consulte o cartão do modelo para métricas de calibração, população avaliada e limitações."}</small>
+          <small>Escores normalizados do protótipo. Não representam prevalência, risco individual ou probabilidade clínica calibrada.</small>
         </article>
         <article className="result-card explanation-card">
           <span className="result-label">Interpretabilidade</span>
-          <h3>{result.status === "Simulação acadêmica" ? "Características examinadas na simulação" : "Características que influenciaram a saída"}</h3>
+          <h3>Características examinadas</h3>
           <div className="feature-list">
             {result.features.map(feature => (
               <div key={feature.name}>
@@ -509,13 +536,25 @@ function Results({ result, modality, signal, onSave }) {
             ))}
           </div>
         </article>
+        <article className="result-card evidence-card">
+          <span className="result-label">Rastreabilidade</span>
+          <h3>Evidências computacionais</h3>
+          <ul>{(result.evidence || []).map(item => <li key={item}>{item}</li>)}</ul>
+          <small>As evidências descrevem o trecho processado e não substituem a leitura do exame.</small>
+        </article>
         <article className="result-card review-card">
           <span className="result-label">Síntese para discussão clínica</span>
           <h3>Próximas verificações</h3>
           <ol>
             {result.recommendations.map(item => <li key={item}>{item}</li>)}
           </ol>
-          <div className="model-card-note"><strong>{result.model}</strong><span>Não validado para diagnóstico, prognóstico ou conduta terapêutica.</span></div>
+          <div className="model-card-note"><strong>{result.model}</strong><span>{result.modelBasis || "Não validado para diagnóstico, prognóstico ou conduta terapêutica."}</span></div>
+        </article>
+        <article className="result-card limitations-card">
+          <span className="result-label">Limites de uso</span>
+          <h3>Interpretação responsável</h3>
+          <ul>{(result.limitations || ["Não validado para diagnóstico, prognóstico ou conduta terapêutica."]).map(item => <li key={item}>{item}</li>)}</ul>
+          <strong>{result.decisionSupportNotice || "A classificação exige revisão profissional."}</strong>
         </article>
       </div>
     </section>
@@ -536,7 +575,7 @@ function CasesPage({ history, onStart, onClear }) {
               <div className="saved-case-head"><span className="case-signal">{item.modalityName}</span><span>{formatDate(item.createdAt)}</span></div>
               <h3>{item.recordCode}</h3>
               <p>{item.primaryFinding}</p>
-              <div className="saved-case-metrics"><span>Probabilidade <strong>{item.confidence}%</strong></span><span>Qualidade <strong>{item.inspection.quality}%</strong></span></div>
+              <div className="saved-case-metrics"><span>Escore <strong>{item.confidence}%</strong></span><span>Qualidade <strong>{item.inspection.quality}%</strong></span></div>
               <div className="saved-case-foot"><span>{item.status}</span><button onClick={() => downloadJson(item, `${item.id}.json`)}>Exportar</button></div>
             </article>
           ))}

@@ -1124,16 +1124,12 @@ button:disabled {
   background: #f2f7f6;
 }
 
-.consent-check > span {
+.consent-check input {
   width: 16px;
   height: 16px;
   flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  border-radius: 4px;
-  color: #fff;
-  background: var(--teal);
-  font-size: 8px;
+  margin: 1px 0 0;
+  accent-color: var(--teal);
 }
 
 .consent-check p {

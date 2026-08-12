@@ -245,7 +245,10 @@ def select_modality(modality: str, load_demo: bool = False) -> None:
 def open_demo(modality: str) -> None:
     select_modality(modality, True)
     st.session_state.view = "Nova análise"
-    st.rerun()
+
+
+def navigate(view: str) -> None:
+    st.session_state.view = view
 
 
 def save_case(result: dict) -> None:
@@ -279,15 +282,18 @@ def overview_page() -> None:
                 st.caption(metadata["target"])
                 preview = compact_signal(generate_signal(modality, 480), 180)
                 st.line_chart(preview, height=105)
-                if st.button("Abrir demonstração", key=f"overview-{modality}", use_container_width=True):
-                    open_demo(modality)
+                st.button(
+                    "Abrir demonstração",
+                    key=f"overview-{modality}",
+                    use_container_width=True,
+                    on_click=open_demo,
+                    args=(modality,)
+                )
     st.subheader("Análises recentes")
     if not st.session_state.history:
         with st.container(border=True):
             st.info("Nenhuma análise foi salva nesta sessão.")
-            if st.button("Iniciar análise", type="primary"):
-                st.session_state.view = "Nova análise"
-                st.rerun()
+            st.button("Iniciar análise", type="primary", on_click=navigate, args=("Nova análise",))
         return
     recent = [{
         "Modalidade": item["modalityName"],

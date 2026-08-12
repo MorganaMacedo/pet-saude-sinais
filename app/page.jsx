@@ -116,6 +116,7 @@ export default function Home() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [acknowledged, setAcknowledged] = useState(false);
   const inputRef = useRef(null);
 
   const quality = useMemo(() => signal.length ? inspectSignal(signal, selectedModality.id, sampleRate) : null, [signal, selectedModality, sampleRate]);
@@ -252,6 +253,8 @@ export default function Home() {
               result={result}
               busy={busy}
               error={error}
+              acknowledged={acknowledged}
+              onAcknowledged={setAcknowledged}
               onAnalyze={analyze}
               onSave={saveCase}
             />
@@ -341,7 +344,7 @@ function Overview({ history, onStart, onDemo }) {
   );
 }
 
-function AnalysisPage({ modality, onModality, signal, fileName, sampleRate, onSampleRate, quality, inputRef, onFile, onDemo, recordCode, onRecordCode, selectedSymptoms, onSymptom, notes, onNotes, result, busy, error, onAnalyze, onSave }) {
+function AnalysisPage({ modality, onModality, signal, fileName, sampleRate, onSampleRate, quality, inputRef, onFile, onDemo, recordCode, onRecordCode, selectedSymptoms, onSymptom, notes, onNotes, result, busy, error, acknowledged, onAcknowledged, onAnalyze, onSave }) {
   return (
     <div className="page analysis-page">
       <div className="page-title-row">
@@ -441,8 +444,8 @@ function AnalysisPage({ modality, onModality, signal, fileName, sampleRate, onSa
             ) : (
               <div className="side-empty"><span>∿</span><p>Envie um sinal para verificar duração, ruído, saturação e faixa dinâmica.</p></div>
             )}
-            <div className="consent-check"><span>✓</span><p>Utilizarei o resultado somente para ensino ou pesquisa, com revisão de profissional habilitado.</p></div>
-            <button className="button primary full" disabled={!signal.length || busy || quality?.status === "Insuficiente"} onClick={onAnalyze}>{busy ? "Processando sinal..." : "Gerar pré-análise"}</button>
+            <label className="consent-check"><input type="checkbox" checked={acknowledged} onChange={event => onAcknowledged(event.target.checked)} /><p>Utilizarei o resultado somente para ensino ou pesquisa, com revisão de profissional habilitado.</p></label>
+            <button className="button primary full" disabled={!signal.length || busy || quality?.status === "Insuficiente" || !acknowledged} onClick={onAnalyze}>{busy ? "Processando sinal..." : "Gerar pré-análise"}</button>
             <small className="button-note">Nenhuma decisão clínica deve ser tomada apenas com esta saída.</small>
           </article>
         </aside>

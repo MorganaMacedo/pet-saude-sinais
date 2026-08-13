@@ -1,0 +1,42 @@
+{
+  "modality": "ecg",
+  "version": "ecg-3.0",
+  "test_size": 0.2,
+  "calibration_size": 0.15,
+  "random_seed": 42,
+  "n_estimators": 600,
+  "min_samples_leaf": 2,
+  "abstention_threshold": 0.55,
+  "intended_use": "Ensino e pesquisa",
+  "sources": [
+    {
+      "dataset_id": "base-desenvolvimento",
+      "dataset_name": "Base de desenvolvimento",
+      "dataset_path": "datasets/desenvolvimento/registros.csv",
+      "role": "development",
+      "format": "wide_csv",
+      "header": "infer",
+      "label_column": "label",
+      "group_column": "subject_id",
+      "signal_start": 3,
+      "sample_rate": 500,
+      "label_map": {}
+    },
+    {
+      "dataset_id": "base-validacao-externa",
+      "dataset_name": "Base de validação externa",
+      "dataset_path": "datasets/validacao/registros.csv",
+      "role": "external_validation",
+      "format": "wide_csv",
+      "header": "infer",
+      "label_column": "label",
+      "group_column": "subject_id",
+      "signal_start": 3,
+      "sample_rate": 500,
+      "label_map": {}
+    }
+  ],
+  "limitations": [
+    "Mapeamento de rótulos sujeito à revisão clínica"
+  ]
+}

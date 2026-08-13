@@ -16,7 +16,7 @@ from portal.signal_io import compact_signal, read_signal_bytes
 
 
 st.set_page_config(
-    page_title="PET-Saúde Sinais Clínicos",
+    page_title="PET-Saúde PathClass 3.0",
     page_icon="🩺",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -184,7 +184,7 @@ def access_screen() -> dict:
         return {"email": "desenvolvimento@ucpel.edu.br", "name": "Desenvolvimento local", "local": True}
     if not authentication_configured():
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
-        st.title("PET-Saúde Sinais Clínicos")
+        st.title("PET-Saúde PathClass 3.0")
         st.error("A autenticação Google ainda não foi configurada nesta instalação.")
         st.write("Adicione as credenciais OIDC aos Secrets do Streamlit antes de liberar a aplicação.")
         st.markdown("</div>", unsafe_allow_html=True)
@@ -192,7 +192,7 @@ def access_screen() -> dict:
     if not st.user.is_logged_in:
         st.markdown('<div class="login-card">', unsafe_allow_html=True)
         st.markdown('<span class="eyebrow">Acesso institucional</span>', unsafe_allow_html=True)
-        st.title("PET-Saúde Sinais Clínicos")
+        st.title("PET-Saúde PathClass 3.0")
         st.write("Entre com sua conta Google institucional para acessar a aplicação.")
         st.markdown("<div class=\"institutional\">Domínios autorizados: @ucpel.edu.br e @sou.ucpel.edu.br</div>", unsafe_allow_html=True)
         if st.button("Entrar com Google", type="primary", use_container_width=True):
@@ -245,10 +245,7 @@ def select_modality(modality: str, load_demo: bool = False) -> None:
 def open_demo(modality: str) -> None:
     select_modality(modality, True)
     st.session_state.view = "Nova análise"
-
-
-def navigate(view: str) -> None:
-    st.session_state.view = view
+    st.rerun()
 
 
 def save_case(result: dict) -> None:
@@ -269,8 +266,9 @@ def overview_page() -> None:
         "Análise de sinais fisiológicos",
         "Selecione uma modalidade, envie um sinal desidentificado e consulte a avaliação de qualidade e a pré-análise acadêmica."
     )
-    left, right = st.columns(2)
-    left.metric("Modalidades preparadas", "6", "ECG, EMG, EEG, PPG, RESP e PCG", delta_color="off")
+    left, center, right = st.columns(3)
+    left.metric("Modalidades preparadas", "7", "ECG, EMG, EEG, PPG, RESP, LUNG e PCG", delta_color="off")
+    center.metric("Bases catalogadas", "16", "Treinamento e validação por modalidade", delta_color="off")
     right.metric("Casos nesta sessão", len(st.session_state.history), "Sem persistência no servidor", delta_color="off")
     st.subheader("Análises disponíveis")
     columns = st.columns(3)
@@ -282,18 +280,15 @@ def overview_page() -> None:
                 st.caption(metadata["target"])
                 preview = compact_signal(generate_signal(modality, 480), 180)
                 st.line_chart(preview, height=105)
-                st.button(
-                    "Abrir demonstração",
-                    key=f"overview-{modality}",
-                    use_container_width=True,
-                    on_click=open_demo,
-                    args=(modality,)
-                )
+                if st.button("Abrir demonstração", key=f"overview-{modality}", use_container_width=True):
+                    open_demo(modality)
     st.subheader("Análises recentes")
     if not st.session_state.history:
         with st.container(border=True):
             st.info("Nenhuma análise foi salva nesta sessão.")
-            st.button("Iniciar análise", type="primary", on_click=navigate, args=("Nova análise",))
+            if st.button("Iniciar análise", type="primary"):
+                st.session_state.view = "Nova análise"
+                st.rerun()
         return
     recent = [{
         "Modalidade": item["modalityName"],
@@ -350,9 +345,11 @@ def analysis_result(result: dict) -> None:
         st.error("Há sinal ou sintoma de alarme informado. Aplique o protocolo assistencial institucional independentemente da classificação.")
     if result.get("outOfDistribution"):
         st.warning("O sinal difere da distribuição de referência ou não existe um modelo treinado registrado. A classificação não deve orientar decisão clínica.")
+    calibrated = result.get("probabilityMode") == "calibrated_research"
+    score_label = "Probabilidade" if calibrated else "Escore"
     finding, probability, quality = st.columns(3)
     finding.metric("Classe priorizada", result["primaryFinding"])
-    probability.metric("Probabilidade", f"{result['confidence']}%", f"Incerteza {result['uncertainty'].lower()}", delta_color="off")
+    probability.metric(score_label, f"{result['confidence']}%", f"Incerteza {result['uncertainty'].lower()}", delta_color="off")
     quality.metric("Qualidade", f"{result['inspection']['quality']}%", result["inspection"]["status"], delta_color="off")
     left, right = st.columns(2)
     with left:
@@ -360,11 +357,13 @@ def analysis_result(result: dict) -> None:
             st.subheader("Hipóteses do modelo")
             probabilities = pd.DataFrame({
                 "Hipótese": [item["label"] for item in result["probabilities"]],
-                "Probabilidade": [round(item["value"] * 100, 2) for item in result["probabilities"]]
+                score_label: [round(item["value"] * 100, 2) for item in result["probabilities"]]
             }).set_index("Hipótese")
             st.bar_chart(probabilities, height=280)
-            if result["status"] == "Simulação acadêmica":
-                st.caption("Probabilidades demonstrativas, sem calibração clínica. Não representam prevalência ou risco individual.")
+            if calibrated:
+                st.caption("Probabilidades condicionais de pesquisa, calibradas no domínio documentado. Não representam prevalência ou risco individual.")
+            else:
+                st.caption("Escores demonstrativos sem calibração clínica. Não representam prevalência ou risco individual.")
     with right:
         with st.container(border=True):
             st.subheader("Características examinadas")
@@ -522,7 +521,7 @@ def cases_page() -> None:
             top, probability, quality = st.columns([2, 1, 1])
             top.markdown(f"<div class=\"case-title\">{result['recordCode']} · {result['modalityName']}</div>", unsafe_allow_html=True)
             top.caption(result["primaryFinding"])
-            probability.metric("Probabilidade", f"{result['confidence']}%")
+            probability.metric("Probabilidade" if result.get("probabilityMode") == "calibrated_research" else "Escore", f"{result['confidence']}%")
             quality.metric("Qualidade", f"{result['inspection']['quality']}%")
             left, right = st.columns(2)
             left.download_button(
@@ -547,7 +546,7 @@ user = access_screen()
 initialize_state()
 
 with st.sidebar:
-    st.markdown('<div class="brand"><strong>PET-Saúde</strong><span>Sinais clínicos · UCPel</span></div>', unsafe_allow_html=True)
+    st.markdown('<div class="brand"><strong>PET-Saúde</strong><span>Sinais clínicos 3.0 · UCPel</span></div>', unsafe_allow_html=True)
     st.caption(f"Acesso: {user['email']}")
     st.radio("Navegação", ["Visão geral", "Nova análise", "Casos analisados"], key="view")
     st.markdown("---")

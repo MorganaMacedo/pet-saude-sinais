@@ -47,6 +47,15 @@ MODALITIES = {
         "unit": "L/s",
         "color": "#047857"
     },
+    "lung": {
+        "name": "LUNG",
+        "full_name": "Ausculta pulmonar digital",
+        "target": "Sibilos, estertores e padrões respiratórios",
+        "sample_rate": 4000,
+        "channel": "Campo pulmonar",
+        "unit": "u.a.",
+        "color": "#0e7490"
+    },
     "pcg": {
         "name": "PCG",
         "full_name": "Fonocardiografia",
@@ -65,16 +74,21 @@ SYMPTOMS = [
     "Dor torácica",
     "Síncope ou pré-síncope",
     "Dispneia importante",
+    "Convulsão",
     "Fraqueza muscular",
     "Tremor",
-    "Alteração do sono"
+    "Alteração do sono",
+    "Cianose",
+    "Tosse",
+    "Sibilância relatada"
 ]
 
 
-SEEDS = {"ecg": 101, "emg": 211, "eeg": 307, "ppg": 401, "resp": 503, "pcg": 601}
+SEEDS = {"ecg": 101, "emg": 211, "eeg": 307, "ppg": 401, "resp": 503, "lung": 557, "pcg": 601}
 
 
-def generate_signal(modality: str, length: int = 2400) -> np.ndarray:
+def generate_signal(modality: str, length: int | None = None) -> np.ndarray:
+    length = length or (20000 if modality == "lung" else 2400)
     rng = np.random.default_rng(SEEDS[modality])
     index = np.arange(length)
     time = index / max(length, 1)
@@ -99,6 +113,10 @@ def generate_signal(modality: str, length: int = 2400) -> np.ndarray:
         return np.exp(-np.square((phase - 0.22) / 0.1)) + 0.24 * np.exp(-np.square((phase - 0.52) / 0.07)) + noise * 0.35
     if modality == "resp":
         return 0.82 * np.sin(time * np.pi * 6) + 0.12 * np.sin(time * np.pi * 12) + noise * 0.5
+    if modality == "lung":
+        seconds = index / MODALITIES[modality]["sample_rate"]
+        envelope = np.maximum(np.sin(2 * np.pi * 0.28 * seconds), 0)
+        return envelope * (noise * 2.5 + 0.18 * np.sin(2 * np.pi * 520 * seconds))
     phase = np.mod(time * 11, 1)
     shifted = np.maximum(0, phase - 0.38)
     first = np.sin(phase * 90) * np.exp(-phase * 45)

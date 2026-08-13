@@ -14,7 +14,7 @@ class Schema(BaseModel):
 
 
 class AnalyzeRequest(Schema):
-    modality: Literal["ecg", "emg", "eeg", "ppg", "resp", "pcg"]
+    modality: Literal["ecg", "emg", "eeg", "ppg", "resp", "lung", "pcg"]
     samples: list[float | None] = Field(min_length=64, max_length=1_000_000)
     sample_rate: int = Field(ge=20, le=20_000)
     record_code: str = Field(default="Sem identificação", max_length=64)
@@ -48,6 +48,13 @@ class FeatureContribution(Schema):
     direction: str
 
 
+class EvidenceSource(Schema):
+    id: str
+    title: str
+    role: str
+    readiness: str
+
+
 class AnalysisResponse(Schema):
     id: str
     created_at: datetime
@@ -56,6 +63,8 @@ class AnalysisResponse(Schema):
     record_code: str
     model: str
     status: str
+    probability_mode: str
+    calibration_status: str
     primary_finding: str
     confidence: int
     uncertainty: str
@@ -66,6 +75,7 @@ class AnalysisResponse(Schema):
     notes: str
     urgent_context: bool
     recommendations: list[str]
+    evidence_sources: list[EvidenceSource]
     decision_support_notice: str
     out_of_distribution: bool
 
@@ -74,17 +84,21 @@ class ModelCard(Schema):
     modality: str
     version: str
     status: str
+    probability_mode: str
+    calibration_status: str
     dataset: str
     intended_use: str
     labels: list[str]
-    metrics: dict[str, float | int | str | bool | None]
+    metrics: dict[str, object]
     limitations: list[str]
     patient_level_split: bool
     external_validation: bool
+    evidence_sources: list[EvidenceSource]
 
 
 class HealthResponse(Schema):
     status: str
     mode: str
     trained_models: int
+    dataset_catalog: int
     persistence: str

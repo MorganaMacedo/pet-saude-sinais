@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import wave
 
 import numpy as np
 import pandas as pd
@@ -8,6 +9,7 @@ from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
+from .datasets import catalog_summary, load_catalog
 from .registry import LABELS, ModelRegistry
 from .schemas import AnalysisResponse, AnalyzeRequest, HealthResponse, ModelCard
 from .service import Analyzer
@@ -19,7 +21,7 @@ origins = [item.strip() for item in os.getenv("PET_SAUDE_ALLOWED_ORIGINS", "http
 
 app = FastAPI(
     title="PET-Saúde Sinais Clínicos API",
-    version="0.4.0",
+    version="3.0.0",
     description="API de pesquisa para controle de qualidade e classificação de sinais fisiológicos."
 )
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -38,6 +40,7 @@ def health() -> HealthResponse:
         status="ok",
         mode="research" if registry.trained_count else "educational_demo",
         trained_models=registry.trained_count,
+        dataset_catalog=len(load_catalog()),
         persistence="disabled"
     )
 
@@ -50,6 +53,11 @@ def list_modalities() -> list[dict]:
 @app.get("/v1/models", response_model=list[ModelCard])
 def list_models() -> list[ModelCard]:
     return registry.cards()
+
+
+@app.get("/v1/datasets")
+def list_datasets() -> dict:
+    return {"summary": catalog_summary(), "items": load_catalog()}
 
 
 @app.post("/v1/models/reload", response_model=list[ModelCard])
@@ -83,12 +91,12 @@ async def analyze_file(
     if len(data) > 25_000_000:
         raise HTTPException(status_code=413, detail="O arquivo excede 25 MB.")
     try:
-        samples = _read_uploaded_signal(data, file.filename or "signal.csv")
+        samples, detected_rate = _read_uploaded_signal(data, file.filename or "signal.csv")
         parsed_symptoms = json.loads(symptoms)
         request = AnalyzeRequest(
             modality=modality,
             samples=samples,
-            sample_rate=sample_rate,
+            sample_rate=detected_rate or sample_rate,
             record_code=record_code,
             symptoms=parsed_symptoms if isinstance(parsed_symptoms, list) else [],
             notes=notes
@@ -98,9 +106,12 @@ async def analyze_file(
         raise HTTPException(status_code=422, detail=str(exception)) from exception
 
 
-def _read_uploaded_signal(data: bytes, filename: str) -> list[float]:
+def _read_uploaded_signal(data: bytes, filename: str) -> tuple[list[float], int | None]:
     lowered = filename.lower()
-    if lowered.endswith(".json"):
+    detected_rate = None
+    if lowered.endswith(".wav"):
+        values, detected_rate = _read_wav(data)
+    elif lowered.endswith(".json"):
         parsed = json.loads(data.decode("utf-8"))
         source = parsed if isinstance(parsed, list) else parsed.get("signal", parsed.get("samples", []))
         values = pd.to_numeric(pd.Series(source), errors="coerce").dropna().to_numpy(dtype=float)
@@ -117,4 +128,23 @@ def _read_uploaded_signal(data: bytes, filename: str) -> list[float]:
     values = values[np.isfinite(values)]
     if values.size < 64:
         raise ValueError("O arquivo precisa conter ao menos 64 amostras numéricas válidas.")
-    return values[:1_000_000].tolist()
+    return values[:1_000_000].tolist(), detected_rate
+
+
+def _read_wav(data: bytes) -> tuple[np.ndarray, int]:
+    with wave.open(io.BytesIO(data), "rb") as source:
+        channels = source.getnchannels()
+        sample_width = source.getsampwidth()
+        sample_rate = source.getframerate()
+        frames = source.readframes(source.getnframes())
+    dtypes = {1: np.uint8, 2: "<i2", 4: "<i4"}
+    if sample_width not in dtypes:
+        raise ValueError("O WAV precisa usar amostras PCM de 8, 16 ou 32 bits.")
+    values = np.frombuffer(frames, dtype=dtypes[sample_width]).astype(np.float64)
+    if channels > 1:
+        values = values.reshape(-1, channels)[:, 0]
+    if sample_width == 1:
+        values = (values - 128.0) / 128.0
+    else:
+        values /= float(2 ** (sample_width * 8 - 1))
+    return values, sample_rate

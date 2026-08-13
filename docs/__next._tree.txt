@@ -1,2 +1,2 @@
-:HL["/pet-saude-sinais/_next/static/chunks/292kzlp6pa1ut.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"ldWG5GytSJHtVOete089n"}
+:HL["/pet-saude-sinais/_next/static/chunks/23xl6zgvsol1z.css","style"]
+0:{"tree":{"name":"","param":null,"prefetchHints":4176,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}},"staleTime":300,"buildId":"pxhcowI3QAzmtVoywIze-"}

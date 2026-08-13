@@ -61,6 +61,7 @@ MODALITY_SPECS = {
     "eeg": {"band": (0.5, 70.0), "peak_distance": 0.08, "min_duration": 4.0},
     "ppg": {"band": (0.3, 12.0), "peak_distance": 0.35, "min_duration": 5.0},
     "resp": {"band": (0.05, 4.0), "peak_distance": 1.0, "min_duration": 10.0},
+    "lung": {"band": (60.0, 1800.0), "peak_distance": 0.015, "min_duration": 4.0},
     "pcg": {"band": (20.0, 500.0), "peak_distance": 0.08, "min_duration": 2.5}
 }
 

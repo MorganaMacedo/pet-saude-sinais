@@ -1,3 +1,5 @@
+import { datasetSourcesFor } from "./evidence.js";
+
 const pattern = (id, label, group, priority, description, review) => ({
   id,
   label,
@@ -102,6 +104,27 @@ export const modalities = [
       pattern("periodica", "Respiração periódica suspeita", "Instabilidade ventilatória", "Prioritária", "Oscilação progressiva da amplitude e pausas sugerem padrão ventilatório periódico.", "Revisar ciclos de crescendo e decrescendo, pausas, oximetria e contexto cardiopulmonar."),
       pattern("obstrutivo", "Padrão obstrutivo suspeito", "Alteração da curva de fluxo", "Atenção", "Assimetria do ciclo e deformação do fluxo justificam revisão de limitação expiratória.", "Comparar fluxo, esforço, volumes pulmonares e resposta a manobras ou broncodilatador."),
       pattern("artefato", "Sinal respiratório não classificável", "Qualidade de aquisição", "Reaquisição", "Desconexão, deslocamento ou ruído limita a classificação ventilatória.", "Verificar sensor, cânula, cinta, vazamento e sincronização com os demais canais.")
+    ]
+  },
+  {
+    id: "lung",
+    name: "LUNG",
+    fullName: "Ausculta pulmonar digital",
+    target: "Sibilos, estertores e hipóteses respiratórias associadas",
+    sampleRate: 4000,
+    demoDuration: 6,
+    channel: "Campo pulmonar",
+    unit: "u.a.",
+    color: "#0e7490",
+    patterns: [
+      pattern("normal", "Som respiratório sem alteração predominante", "Ausculta pulmonar", "Rotina", "Fluxo respiratório sem som adventício dominante no trecho analisado.", "Confirmar a ausculta em múltiplos campos, bilateralmente, e correlacionar com o exame clínico."),
+      pattern("asma", "Sibilância compatível com obstrução brônquica", "Hipóteses associadas: asma ou outra doença obstrutiva", "Prioritária", "Componente musical expiratório sugere sibilância, achado compatível com asma, mas não específico dessa doença.", "Correlacionar com variabilidade dos sintomas e confirmar obstrução variável por espirometria antes e após broncodilatador."),
+      pattern("dpoc", "Padrão acústico associado a doença obstrutiva crônica", "Hipótese associada: DPOC", "Atenção", "Sibilos e componentes graves persistentes podem ocorrer em doença obstrutiva crônica.", "Avaliar exposição, sintomas crônicos e confirmar obstrução persistente por espirometria."),
+      pattern("pneumonia", "Estertores focais compatíveis com acometimento pulmonar", "Hipóteses associadas: pneumonia ou congestão", "Prioritária", "Eventos descontínuos de curta duração sugerem estertores, sem definir sua etiologia.", "Revisar febre, saturação, assimetria da ausculta e indicação de investigação por imagem."),
+      pattern("bronquite", "Roncos compatíveis com secreção em vias aéreas", "Hipótese associada: bronquite", "Atenção", "Energia grave e intermitente pode corresponder a roncos relacionados a secreções.", "Reavaliar após tosse, examinar vias aéreas e correlacionar com duração e características da expectoração."),
+      pattern("fibrose", "Estertores finos persistentes", "Hipótese associada: doença intersticial", "Prioritária", "Estertores finos recorrentes justificam investigação de acometimento intersticial, sem confirmar fibrose.", "Correlacionar com dispneia, exposição, provas funcionais e avaliação especializada."),
+      pattern("misto", "Sibilos e estertores combinados", "Padrão adventício misto", "Prioritária", "A presença simultânea de componentes musicais e eventos descontínuos amplia os diagnósticos diferenciais.", "Repetir a ausculta em múltiplos campos e integrar sinais vitais, história, espirometria e imagem quando indicadas."),
+      pattern("artefato", "Ausculta pulmonar não classificável", "Qualidade de aquisição", "Reaquisição", "Atrito, fala, tosse ou ruído ambiental limita a caracterização do som respiratório.", "Repetir em ambiente silencioso, estabilizar o estetoscópio e registrar ciclos respiratórios completos.")
     ]
   },
   {
@@ -227,6 +250,25 @@ function respiratorySample(t, patternId, rand) {
   return amplitude * (0.82 * Math.sin(angle) + 0.1 * Math.sin(2 * angle)) + (rand() - 0.5) * 0.025;
 }
 
+function lungSample(t, patternId, rand) {
+  const respiratoryPhase = positivePhase(t * 0.28);
+  const inspiratoryEnvelope = respiratoryPhase < 0.42 ? Math.sin(Math.PI * respiratoryPhase / 0.42) : 0;
+  const expiratoryEnvelope = respiratoryPhase >= 0.42 ? Math.sin(Math.PI * (respiratoryPhase - 0.42) / 0.58) : 0;
+  const airflow = (rand() - 0.5) * 0.22 * (0.25 + inspiratoryEnvelope + expiratoryEnvelope * 0.8);
+  const wheezeEnvelope = expiratoryEnvelope * (patternId === "asma" || patternId === "misto" ? 1 : patternId === "dpoc" ? 0.6 : 0);
+  const wheeze = wheezeEnvelope * (0.42 * Math.sin(2 * Math.PI * 510 * t) + 0.2 * Math.sin(2 * Math.PI * 735 * t));
+  const rhonchiEnvelope = (inspiratoryEnvelope + expiratoryEnvelope) * (patternId === "bronquite" || patternId === "dpoc" ? 1 : 0);
+  const rhonchi = rhonchiEnvelope * (0.34 * Math.sin(2 * Math.PI * 118 * t) + 0.18 * Math.sin(2 * Math.PI * 165 * t));
+  const crackleRate = patternId === "fibrose" ? 14 : patternId === "pneumonia" || patternId === "misto" ? 7 : 0;
+  const cracklePhase = crackleRate ? positivePhase(t * crackleRate) : 0;
+  const crackleEnvelope = crackleRate ? gaussian(cracklePhase, 0.14, patternId === "fibrose" ? 0.025 : 0.045) : 0;
+  const crackleCarrier = patternId === "fibrose" ? 1050 : 620;
+  const crackles = crackleEnvelope * Math.sin(2 * Math.PI * crackleCarrier * t) * (patternId === "misto" ? 0.55 : 0.82);
+  const reduced = patternId === "dpoc" ? 0.68 : 1;
+  const artifact = patternId === "artefato" ? (rand() - 0.5) * 1.1 + 0.58 * Math.sin(2 * Math.PI * 48 * t) : 0;
+  return reduced * (airflow + wheeze + rhonchi + crackles) + artifact;
+}
+
 function pcgSample(t, patternId, rand) {
   const rate = 74;
   const phase = positivePhase(t * rate / 60);
@@ -259,11 +301,28 @@ export function generateSignal(modalityId, length, patternId) {
     if (modalityId === "eeg") return eegSample(t, selectedPattern, rand);
     if (modalityId === "ppg") return ppgSample(t, selectedPattern, rand);
     if (modalityId === "resp") return respiratorySample(t, selectedPattern, rand);
+    if (modalityId === "lung") return lungSample(t, selectedPattern, rand);
     return pcgSample(t, selectedPattern, rand);
   });
 }
 
 export async function readSignalFile(file) {
+  if (file.name.toLowerCase().endsWith(".wav")) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error("Este navegador não oferece decodificação de áudio WAV.");
+    const context = new AudioContextClass();
+    try {
+      const decoded = await context.decodeAudioData(await file.arrayBuffer());
+      const channel = decoded.getChannelData(0);
+      const step = Math.max(1, Math.ceil(channel.length / 20000));
+      const values = Array.from(channel).filter((_, index) => index % step === 0).slice(0, 20000);
+      values.sampleRate = Math.round(decoded.sampleRate / step);
+      if (values.length < 32) throw new Error("O áudio precisa conter ao menos 32 amostras válidas.");
+      return values;
+    } finally {
+      await context.close();
+    }
+  }
   const content = await file.text();
   if (file.name.toLowerCase().endsWith(".json")) {
     const parsed = JSON.parse(content);
@@ -358,7 +417,7 @@ function statistics(signal) {
   };
 }
 
-const minimumDurations = { ecg: 2.5, emg: 1, eeg: 4, ppg: 5, resp: 10, pcg: 2.5 };
+const minimumDurations = { ecg: 2.5, emg: 1, eeg: 4, ppg: 5, resp: 10, lung: 4, pcg: 2.5 };
 
 export function inspectSignal(signal, modalityId, sampleRate) {
   const stats = statistics(signal);
@@ -483,6 +542,30 @@ function eegBands(signal, sampleRate) {
   return powers;
 }
 
+function acousticBands(signal, sampleRate) {
+  const values = signal.slice(0, Math.min(signal.length, 8192));
+  const mean = average(values);
+  const centered = values.map(value => value - mean);
+  const groups = { low: 0, wheeze: 0, crackle: 0 };
+  let maximum = 0;
+  let total = 0;
+  for (let frequency = 80; frequency <= Math.min(1500, sampleRate / 2 - 20); frequency += 40) {
+    const power = goertzel(centered, sampleRate, frequency);
+    if (frequency < 250) groups.low += power;
+    else if (frequency < 800) groups.wheeze += power;
+    else groups.crackle += power;
+    maximum = Math.max(maximum, power);
+    total += power;
+  }
+  const denominator = Math.max(total, 1e-12);
+  return {
+    low: groups.low / denominator,
+    wheeze: groups.wheeze / denominator,
+    crackle: groups.crackle / denominator,
+    tonality: clamp(maximum / denominator * 8)
+  };
+}
+
 function lowActivityRatio(signal, sampleRate) {
   const globalRms = Math.sqrt(average(signal.map(value => value * value)));
   const windowSize = Math.max(16, Math.round(sampleRate * 0.8));
@@ -501,6 +584,7 @@ function extractClinicalFeatures(signal, modalityId, sampleRate, inspection) {
   const stats = statistics(signal);
   const peaks = detectPeaks(signal, sampleRate, modalityId);
   const bands = modalityId === "eeg" ? eegBands(signal, sampleRate) : { delta: 0, theta: 0, alpha: 0, beta: 0, gamma: 0 };
+  const acoustic = modalityId === "lung" ? acousticBands(signal, sampleRate) : { low: 0, wheeze: 0, crackle: 0, tonality: 0 };
   const artifactIndex = clamp(inspection.noiseRatio * 1.8 + inspection.clipping * 5 + stats.baselineDrift * 0.9 + (inspection.quality < 60 ? 0.4 : 0));
   const spikeIndex = clamp((stats.kurtosis - 3) / 9 + stats.spikeRatio * 8);
   return {
@@ -515,6 +599,10 @@ function extractClinicalFeatures(signal, modalityId, sampleRate, inspection) {
     slowPower: bands.delta + bands.theta,
     alphaPower: bands.alpha,
     fastPower: bands.beta + bands.gamma,
+    lowAcousticPower: acoustic.low,
+    wheezePower: acoustic.wheeze,
+    cracklePower: acoustic.crackle,
+    tonality: acoustic.tonality,
     perfusionIndex: clamp(inspection.dynamicRange / 0.8),
     impulsivity: clamp((stats.crestFactor - 2) / 5),
     frequencyContent: clamp(stats.zeroCrossingRate * 5),
@@ -571,6 +659,16 @@ function classificationScores(modalityId, features) {
     obstrutivo: 0.3 + f.asymmetry * 2.5 + f.entropy * 0.5,
     artefato: 0.2 + f.artifactIndex * 3.5
   };
+  if (modalityId === "lung") return {
+    normal: 0.7 + (1 - f.tonality) * 0.8 + (1 - f.impulsivity) * 0.6 - f.artifactIndex * 1.8,
+    asma: 0.35 + f.wheezePower * 2.4 + f.tonality * 1.7 + (1 - f.lowAcousticPower) * 0.4,
+    dpoc: 0.35 + f.lowAcousticPower * 1.8 + f.wheezePower * 1.1 + f.entropy * 0.7,
+    pneumonia: 0.35 + f.cracklePower * 2.1 + f.impulsivity * 1.3,
+    bronquite: 0.35 + f.lowAcousticPower * 2.2 + f.entropy * 0.8,
+    fibrose: 0.35 + f.cracklePower * 2.3 + f.frequencyContent * 0.7 + f.spikeIndex * 0.8,
+    misto: 0.3 + f.wheezePower * 1.5 + f.cracklePower * 1.5 + f.impulsivity * 0.5,
+    artefato: 0.2 + f.artifactIndex * 3.7
+  };
   return {
     bulhas: 0.7 + f.impulsivity * 1.2 + (1 - f.entropy) * 0.8 - f.artifactIndex * 1.6,
     sopro_sistolico: 0.35 + f.entropy * 1.5 + f.frequencyContent * 0.9 + f.asymmetry * 0.4,
@@ -626,6 +724,12 @@ function featureContributions(modalityId, f) {
       ["Regularidade dos ciclos", f.regularity, "Estabilidade dos intervalos"],
       ["Assimetria inspiratória-expiratória", f.asymmetry, "Diferença relativa entre fases"]
     ],
+    lung: [
+      ["Energia na faixa de sibilância", f.wheezePower, "Participação relativa entre 250 e 800 Hz"],
+      ["Energia de estertores finos", f.cracklePower, "Participação relativa acima de 800 Hz"],
+      ["Conteúdo grave associado a roncos", f.lowAcousticPower, "Participação relativa entre 80 e 250 Hz"],
+      ["Tonalidade acústica", f.tonality, "Concentração de energia em componentes musicais"]
+    ],
     pcg: [
       ["Impulsividade das bulhas", f.impulsivity, "Concentração de eventos acústicos"],
       ["Energia acústica distribuída", f.entropy, "Persistência de energia no ciclo"],
@@ -644,6 +748,7 @@ function evidenceFor(modalityId, f, inspection) {
     eeg: [`Potência lenta relativa de ${percent(f.slowPower)}%.`, `Potência alfa relativa de ${percent(f.alphaPower)}%.`, `Índice de transientes impulsivos de ${percent(f.spikeIndex)}%.`],
     ppg: [rate ? `Frequência de pulso estimada em ${rate} bpm.` : "O trecho não permitiu estimar o pulso com estabilidade.", `Variabilidade relativa entre pulsos de ${Math.round(f.intervalCv * 100)}%.`, `Índice perfusional relativo de ${percent(f.perfusionIndex)}%.`],
     resp: [rate ? `Frequência respiratória estimada em ${rate} incursões por minuto.` : "O trecho não permitiu estimar a frequência respiratória.", `Janelas de baixa atividade respiratória em ${percent(f.lowActivity)}% do trecho.`, `Regularidade relativa dos ciclos de ${percent(f.regularity)}%.`],
+    lung: [`Energia relativa na faixa de sibilância de ${percent(f.wheezePower)}%.`, `Energia relativa de componentes finos de ${percent(f.cracklePower)}%.`, `Tonalidade acústica de ${percent(f.tonality)}%.`],
     pcg: [`Impulsividade acústica de ${percent(f.impulsivity)}%.`, `Distribuição de energia acústica de ${percent(f.entropy)}%.`, `Índice de ruído e instabilidade de ${percent(f.artifactIndex)}%.`]
   };
   return [...maps[modalityId], `Qualidade técnica global de ${inspection.quality}%.`];
@@ -655,6 +760,7 @@ const limitationsByModality = {
   eeg: "Um único canal não permite determinar campo, topografia, lateralização ou diagnóstico de epilepsia.",
   ppg: "A PPG não confirma fibrilação atrial, perfusão sistêmica ou diagnóstico cardiovascular isoladamente.",
   resp: "O fluxo isolado não diferencia de forma conclusiva causas centrais, obstrutivas ou restritivas.",
+  lung: "A ausculta digital identifica padrões acústicos, mas não confirma asma, DPOC, pneumonia, bronquite ou fibrose sem avaliação clínica e exames complementares.",
   pcg: "A fonocardiografia isolada não substitui ausculta, ecocardiografia ou avaliação cardiovascular."
 };
 
@@ -672,15 +778,19 @@ export function runDemoAnalysis(signal, modality, sampleRate, context = {}) {
   const warningSymptoms = ["Dor torácica", "Síncope ou pré-síncope", "Dispneia importante", "Convulsão", "Cianose"];
   const urgentContext = (context.symptoms || []).some(symptom => warningSymptoms.includes(symptom));
   const clinicalPriority = urgentContext ? "Aplicar protocolo assistencial" : primary.priority;
+  const datasetSources = datasetSourcesFor(modality.id);
   return {
     id: `PET-${new Date().getFullYear()}-${String(Date.now()).slice(-6)}`,
     createdAt: new Date().toISOString(),
     modality: modality.id,
     modalityName: modality.name,
     recordCode: context.recordCode || "Sem identificação",
-    model: `${modality.name}-PathClass 2.0`,
-    modelBasis: "Características temporais, espectrais e morfológicas com regras acadêmicas multimodais",
-    status: sourceType === "demo" ? "Cenário sintético classificado" : "Protótipo acadêmico 2.0",
+    model: `${modality.name}-PathClass 3.0`,
+    modelBasis: "Características temporais, espectrais e morfológicas com arquitetura preparada para modelos calibrados por modalidade",
+    status: sourceType === "demo" ? "Cenário sintético classificado" : "Protótipo acadêmico 3.0",
+    probabilityMode: "score_only",
+    calibrationStatus: "Modelo treinado não registrado",
+    evidenceSources: datasetSources.map(item => ({ id: item.id, title: item.title, role: item.role, readiness: item.readiness })),
     primaryFinding: primary.label,
     primaryGroup: primary.group,
     primaryDescription: primary.description,
@@ -703,7 +813,9 @@ export function runDemoAnalysis(signal, modality, sampleRate, context = {}) {
     limitations: [
       limitationsByModality[modality.id],
       "Os escores são normalizados para comparação interna e não constituem probabilidades clínicas calibradas.",
-      "O protótipo 2.0 não possui validação externa, autorização regulatória ou indicação assistencial."
+      "O protótipo 3.0 somente exibirá probabilidades quando um modelo treinado, calibrado e documentado estiver registrado no backend.",
+      "As bases listadas constituem o plano de desenvolvimento; o catálogo não comprova que seus dados já tenham sido usados no modelo em execução.",
+      "O sistema não possui autorização regulatória ou indicação assistencial."
     ],
     decisionSupportNotice: "A saída classifica padrões no trecho enviado e não estabelece diagnóstico, prognóstico ou conduta terapêutica.",
     outOfDistribution: true

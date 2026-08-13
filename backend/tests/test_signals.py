@@ -29,3 +29,14 @@ def test_missing_values_are_interpolated():
     quality = assess_quality(prepared)
     assert quality["missing_ratio"] > 0
     assert np.isfinite(prepared.filtered).all()
+
+
+def test_lung_sound_pipeline_accepts_wide_band_signal():
+    sample_rate = 4000
+    time = np.arange(sample_rate * 5) / sample_rate
+    values = 0.2 * np.sin(2 * np.pi * 520 * time) + 0.08 * np.sin(2 * np.pi * 145 * time)
+    prepared = prepare_signal(values.tolist(), sample_rate, "lung")
+    quality = assess_quality(prepared)
+    features = extract_features(prepared)
+    assert quality["duration"] == 5
+    assert features["dominant_frequency"] > 100

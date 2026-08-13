@@ -7,6 +7,8 @@ def json_document(result: dict) -> str:
 
 
 def html_report(result: dict) -> str:
+    calibrated = result.get("probabilityMode") == "calibrated_research"
+    score_label = "Probabilidade" if calibrated else "Escore"
     probabilities = "".join(
         f"<tr><td>{html.escape(item['label'])}</td><td>{item['value'] * 100:.1f}%</td></tr>"
         for item in result["probabilities"]
@@ -24,7 +26,7 @@ body{{font-family:Arial,sans-serif;color:#183036;margin:42px;line-height:1.5}}h1
 </style>
 </head>
 <body>
-<h1>PET-Saúde Sinais Clínicos</h1>
+<h1>PET-Saúde PathClass 3.0</h1>
 <p>Relatório acadêmico de pré-análise</p>
 <div class="meta">
 <div class="card"><strong>Caso</strong><br>{html.escape(result['recordCode'])}</div>
@@ -32,9 +34,9 @@ body{{font-family:Arial,sans-serif;color:#183036;margin:42px;line-height:1.5}}h1
 <div class="card"><strong>Qualidade</strong><br>{result['inspection']['quality']}%</div>
 </div>
 <h2>Classe priorizada</h2>
-<p><strong>{html.escape(result['primaryFinding'])}</strong> com probabilidade de {result['confidence']}% e incerteza {html.escape(result['uncertainty'].lower())}.</p>
+<p><strong>{html.escape(result['primaryFinding'])}</strong> com {score_label.lower()} de {result['confidence']}% e incerteza {html.escape(result['uncertainty'].lower())}.</p>
 <h2>Distribuição das hipóteses</h2>
-<table><thead><tr><th>Hipótese</th><th>Probabilidade</th></tr></thead><tbody>{probabilities}</tbody></table>
+<table><thead><tr><th>Hipótese</th><th>{score_label}</th></tr></thead><tbody>{probabilities}</tbody></table>
 <h2>Contexto informado</h2>
 <p><strong>Sinais e sintomas:</strong> {html.escape(symptoms)}</p>
 <p><strong>Observações:</strong> {html.escape(result.get('notes') or 'Não informadas')}</p>

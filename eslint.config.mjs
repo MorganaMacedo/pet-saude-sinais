@@ -8,7 +8,8 @@ const eslintConfig = defineConfig([
   globalIgnores([
     ".next/**",
     ".venv/**",
-    ".pytest_cache/**",
+    "docs/**",
+    "node_modules/**",
     "out/**",
     "next-env.d.ts",
     "backend/.venv/**",
